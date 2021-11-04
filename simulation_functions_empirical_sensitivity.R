@@ -187,3 +187,72 @@ empirical.sensitivity.first.screen<-function(sensitivity,rate.matrix,start.dist,
   
   
 }
+
+empirical.sensitivity.first.screen.YZ <- function(sensitivity,rate.matrix,start.dist,post.screen.lookout,
+                                             clinical.cancer.state,pre.clinical.cancer.state){
+  
+  screen.detect = start.dist[pre.clinical.cancer.state]*sensitivity
+  lambda1 = rate.matrix[1, pre.clinical.cancer.state]
+  lambda2 = rate.matrix[2, clinical.cancer.state]
+  interval.cancer = 
+    start.dist[1]*integrate(fxn.f.g, 
+                            1, 1+post.screen.lookout, 
+                            lambda1, lambda2, 
+                            t=1+post.screen.lookout,
+                            fun = "lambda1*exp(-lambda1*x)*lambda2*exp(-lambda2*(t-x))")$value +
+    start.dist[pre.clinical.cancer.state]*(1-sensitivity)*
+    integrate(fxn.f.g, 
+              0, 1, 
+              lambda1, lambda2, 
+              t=1+post.screen.lookout,
+              fun = "lambda1*exp(-lambda1*x)*lambda2*exp(-lambda2*(t-x))")$value
+  
+  return(screen.detect / (screen.detect + interval.cancer))
+  
+}
+
+fxn.f.g <- function(x, lambda1, lambda2, t, fun = "exp(-lambda1*x)*exp(-lambda2*(t-x))"){
+  fun <- parse(text=fun)
+  eval(fun, envir=list(x=x, lambda1=lambda1, lambda2=lambda2))
+}
+
+empirical.sensitivity.first.screen.V2 <- function(sensitivity,rate.matrix,start.dist,post.screen.lookout,
+                                                  clinical.cancer.state,pre.clinical.cancer.state){
+  
+  lambda1 = rate.matrix[1, pre.clinical.cancer.state]
+  lambda2 = rate.matrix[2, clinical.cancer.state]
+  
+  screen.detect = sensitivity * integrate(fxn.f.g, 
+                                          0, 1, 
+                                          lambda1=lambda1, lambda2=lambda2, 
+                                          t=1,
+                                          fun = "lambda1*exp(-lambda1*x)*exp(-lambda2*(t-x))")$value
+  interval.cancer = 
+    (1-sensitivity) * integrate(fxn.f.g, 
+                                0, 1, 
+                                lambda1=lambda1, lambda2=lambda2, 
+                                t=1,
+                                fun = "lambda1*exp(-lambda1*x)*( exp(-lambda2*(t-x)) - exp(-lambda2*(t+1-x)) )")$value +
+    integrate(fxn.f.g, 
+              1, 2, 
+              lambda1=lambda1, lambda2=lambda2, 
+              t=1+post.screen.lookout,
+              fun = "lambda1*exp(-lambda1*x)*(1 - exp(-lambda2*(t-x)))")$value
+  
+  return(screen.detect / (screen.detect + interval.cancer))
+  
+}
+
+# start.dist <- exp(-rate.matrix[1,pre.clinical.cancer.state] * 1)
+# integrate(fxn.f.g, 
+#           1, 2, 
+#           lambda1=0.1, lambda2=0.2, 
+#           t=2,
+#           fun = "lambda1*exp(-lambda1*x)*(1 - exp(-lambda2*(t-x)))")$value
+# 
+# InnerIntegral = Vectorize(function(t) { integrate(fxn.f.g, 1, t,
+#                                                   lambda1=0.1, lambda2=0.2, 
+#                                                   t=t,
+#                                                   fun = "lambda1*exp(-lambda1*x)*lambda2*exp(-lambda2*(t-x))")$value})
+# integrate(InnerIntegral , 1, 2)$value
+

@@ -33,12 +33,23 @@ empirical_out=lapply(seq(.1,1,by=.1),empirical.sensitivity,rate.matrix=rateexamp
        pre.clinical.cancer.state=2,
        nreps=10000)
 plot(seq(.1,1,by=.1),unlist(empirical_out),xlab=c("true sensitvity"),ylab=c("empirical sensitvity"),type="l",col="red",xlim=c(0,1),ylim=c(0,1))
-lines(seq(.1,1,by=.01),unlist(empirical_out_first_screen),xlab=c("true sensitvity"),ylab=c("empirical sensitvity"),type="l",col="blue")
+lines(seq(0,1),seq(0,1))
 
 #get empirical sensitivities for a range of true sensitivites, 1st screen, analytic method
 empirical_out_first_screen=lapply(seq(.1,1,by=.01),empirical.sensitivity.first.screen,rate.matrix=rateexample,start.dist=c(1- 0.003984064, 0.003984064,0),
                      post.screen.lookout=1,
                      clinical.cancer.state=3,
                      pre.clinical.cancer.state=2)
-lines(seq(0,1),seq(0,1))
-legend("topleft",legend=c("first screen, analytic","four screens, simulation","y=x"),col=c("blue","red","black"),lty=1,lwd=1)
+lines(seq(.1,1,by=.01),unlist(empirical_out_first_screen),xlab=c("true sensitvity"),ylab=c("empirical sensitvity"),type="l",col="blue")
+# legend("bottomright",legend=c("first screen, analytic","four screens, simulation","y=x"),col=c("blue","red","black"),lty=1,lwd=1)
+
+
+#get empirical sensitivities for a range of true sensitivites, 1st screen, analytic method from Overleaf
+empirical_out_first_screen_V2=lapply(seq(.1,1,by=.01),empirical.sensitivity.first.screen.V2,
+                                     rate.matrix=rateexample,start.dist=c(1- 0.003984064, 0.003984064,0),
+                                     post.screen.lookout=1,
+                                     clinical.cancer.state=3,
+                                     pre.clinical.cancer.state=2)
+lines(seq(.1,1,by=.01),unlist(empirical_out_first_screen_V2),xlab=c("true sensitvity"),ylab=c("empirical sensitvity"),type="l",col="green")
+legend("bottomright",legend=c("first screen, analytic V2", "first screen, analytic", "first screens, simulation","y=x"),col=c("green", "blue","red","black"),lty=1,lwd=1)
+
