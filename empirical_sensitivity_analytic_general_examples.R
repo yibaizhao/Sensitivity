@@ -12,6 +12,7 @@
 
 library("here")
 library("ggplot2")
+library(reshape2)
 source("empirical_sensitivity_analytic_general_functions.R")
 source("simulation_functions_empirical_sensitivity_expanded.R")
 
@@ -24,7 +25,7 @@ rateexample=matrix(c(-.002,.002,0,0,-.16,.16,0,0,0),byrow=T,nrow=3)
 ## simulation method
 empirical_out_simulation_V1=lapply(seq(.1,1,by=.1),empirical.sensitivity.simulation,rate.matrix=rateexample,
                                 start.dist=c(1,0,0),
-                                screen.times=c(3),
+                                screen.times=c(1,2,3,4),
                                 post.screen.lookout=1,
                                 clinical.cancer.state=3,
                                 pre.clinical.cancer.state=2,
@@ -39,7 +40,7 @@ lines(seq(0,1),seq(0,1))
 empirical_analytic_out <-
   lapply(seq(.1,1,by=.01), 
          empirical.sensitivity.general,
-         screen.start.time = 3, k = 1, #start.time=NULL, end.time=NULL,
+         screen.start.time = 1, k = 3, #start.time=NULL, end.time=NULL,
          rate.matrix = rateexample,
          post.screen.lookout = 1,
          clinical.cancer.state = 3, 
@@ -55,7 +56,7 @@ legend("bottomright",legend=c("analytic", "simulation","y=x"),col=c("blue","red"
 ## simulation method
 empirical_out_simulation_V2=lapply(seq(.1,1,by=.1),empirical.sensitivity.simulation,rate.matrix=rateexample,
                                 start.dist=c(1,0,0),
-                                screen.times=c(2,3,4,5,6),
+                                screen.times=c(1,2,3,4),
                                 post.screen.lookout=1,
                                 clinical.cancer.state=3,
                                 pre.clinical.cancer.state=2,
@@ -79,4 +80,52 @@ empirical_analytic_out <-
 lines(seq(.1,1,by=.01),unlist(empirical_analytic_out),xlab=c("true sensitvity"),ylab=c("empirical sensitvity"),type="l",col="blue")
 legend("bottomright",legend=c("analytic", "simulation","y=x"),col=c("blue","red","black"),lty=1,lwd=1)
 
+###########
+# Plots of empirical sensitity(t_k) for k=1,…,n
+###########
+mst <- 1.5
+post.screen.lookout <- 1
+# screen-by-screen 
+rateexample=matrix(c(-.002,.002,0,0,-1/mst,1/mst,0,0,0),byrow=T,nrow=3)
+empirical_analytic_out_k1 <-
+  sapply(seq(1, 10, by = 2), function(k){
+    sapply(seq(.1,1,by=.01), 
+           empirical.sensitivity.general,
+           screen.start.time = 1, k = k, #start.time=NULL, end.time=NULL,
+           rate.matrix = rateexample,
+           post.screen.lookout = post.screen.lookout,
+           clinical.cancer.state = 3, 
+           pre.clinical.cancer.state = 2,
+           method='Single')
+  })
+empirical_analytic_out_k1_long <- as.data.frame(melt(empirical_analytic_out_k1))
+names(empirical_analytic_out_k1_long) <- c('No.', 'k', 'empirical_sensitivity')
+empirical_analytic_out_k1_long$true_sensitivity <- rep(seq(.1,1,by=.01), 5)
+empirical_analytic_out_k1_long$type <- 'single screen'
+
+# Series of screen 
+empirical_analytic_out_k2 <-
+  sapply(seq(1, 10, by = 2), function(k){
+    sapply(seq(.1,1,by=.01), 
+           empirical.sensitivity.general,
+           screen.start.time = 1, k = k, #start.time=NULL, end.time=NULL,
+           rate.matrix = rateexample,
+           post.screen.lookout = post.screen.lookout,
+           clinical.cancer.state = 3, 
+           pre.clinical.cancer.state = 2,
+           method='All')
+  })
+empirical_analytic_out_k2_long <- as.data.frame(melt(empirical_analytic_out_k2))
+names(empirical_analytic_out_k2_long) <- c('No.', 'k', 'empirical_sensitivity')
+empirical_analytic_out_k2_long$true_sensitivity <- rep(seq(.1,1,by=.01), 5)
+empirical_analytic_out_k2_long$type <- 'series of screen'
+
+# merge two scenarior
+empirical_analytic_out_k <- rbind(empirical_analytic_out_k1_long, empirical_analytic_out_k2_long)
+empirical_analytic_out_k %>% 
+  ggplot(aes(x = true_sensitivity, y = empirical_sensitivity, color = k, group = k)) +
+  geom_line() +
+  geom_abline(intercept = 0, slope = 1, lty = 'dashed') +
+  xlim(0, 1) + ylim(0,1) +
+  facet_grid(.~type)
 

@@ -113,13 +113,13 @@ interval.cancer.time.k <- function(screen.times, k,
   for (i in c(1:k)) {
     screen.times_i_1 <- ifelse(i == 1, 0, screen.times[i-1])
     interval.cancer <- interval.cancer + integrate(integrand.interval.cancer.false.negative,
-                                                   lower=screen.times_i_1, upper=screen.times[i], screen.times, k, post.screen.lookout, lambda, gamma)$value * (1-sensitivity)^{k-i+1}
+                                                   lower=screen.times_i_1, upper=screen.times[i], screen.times, k, post.screen.lookout, lambda, gamma)$value * (1-sensitivity)^{(k-i+1)}
   }
   # case 2: interval detected in (t_k, t_{k+1})
   screen.times_k_1 <- screen.times[k] + post.screen.lookout
-  if(screen.times[k] < max(screen.times)){
-    screen.times_k_1 <- screen.times[k+1]
-  }
+  # if(screen.times[k] < max(screen.times)){
+  #   screen.times_k_1 <- screen.times[k+1]
+  # }
   interval.cancer <- interval.cancer + integrate(integrand.interval.cancer.true,
                                                  lower=screen.times[k], upper=screen.times_k_1, screen.times, k, post.screen.lookout, lambda, gamma)$value
   
@@ -150,8 +150,8 @@ empirical.sensitivity.general <- function(screen.start.time, k, #start.time=NULL
 
   screen.times <- screen.start.time + cumsum(rep(post.screen.lookout, k)) - post.screen.lookout
   
-  lambda = rate.matrix[1, pre.clinical.cancer.state]
-  gamma = rate.matrix[pre.clinical.cancer.state, clinical.cancer.state]
+  lambda = rate.matrix[[1, pre.clinical.cancer.state]]
+  gamma = rate.matrix[[pre.clinical.cancer.state, clinical.cancer.state]]
   
   screen.detect = screen.detect.time.k(screen.times, k, lambda, gamma,
                                        sensitivity,
