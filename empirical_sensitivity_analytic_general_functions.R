@@ -1,5 +1,5 @@
 # integral
-integrand.screen.detect <- function(u, screen.times, k, lambda, gamma){
+integrand.screen.detect <- function(u, screen.times, k, lambda, st_params, funs){
   ########################################################################################
   #Author: Yibai Zhao
   #This function calculate the probability of screen detection at time u
@@ -8,16 +8,22 @@ integrand.screen.detect <- function(u, screen.times, k, lambda, gamma){
   #        screen.times: screen times
   #        k: k^{th} screen time, t_k
   #        lambda: mean pre-clinical onset time
-  #        gamma: mean sojourn time
+  #        st_params: parameters for sojourn time function
+  #        funs: function of sojourn time
   #OUTPUTS: numeric value between 0 and 1
   ##########################################################################################
   
-  dexp(u, rate=lambda)*pexp(screen.times[k]-u, rate=gamma,lower.tail=F)
+  if(funs == 'exp'){
+    return(dexp(u, rate=lambda)*pexp(screen.times[k]-u, rate=st_params,lower.tail=F))
+  }
+  if(funs == 'weibull'){
+    return(dexp(u, rate=lambda)*pweibull(screen.times[k]-u, shape=st_params[1], scale=st_params[2],lower.tail=F))
+  }
   
 }
 
 
-integrand.interval.cancer.false.negative <- function(u, screen.times, k, post.screen.lookout, lambda, gamma){
+integrand.interval.cancer.false.negative <- function(u, screen.times, k, post.screen.lookout, lambda, st_params, funs){
   ########################################################################################
   #Author: Yibai Zhao
   #This function calculate the probability of interval cancer when onset at time u and k^{th} test is false negative
@@ -27,16 +33,25 @@ integrand.interval.cancer.false.negative <- function(u, screen.times, k, post.sc
   #        k: k^{th} screen time, t_k
   #        post.screen.lookout: post screen lookout time
   #        lambda: mean pre-clinical onset time from exp(lambda)
-  #        gamma: mean sojourn time fromo exp(gamma)
+  #        st_params: parameters for sojourn time function
+  #        funs: function of sojourn time
   #OUTPUTS: numeric value between 0 and 1
   ##########################################################################################
   
   screen.times_k_1 <- screen.times[k] + post.screen.lookout
-  dexp(u, rate=lambda)*( pexp(screen.times_k_1-u, rate=gamma) - pexp(screen.times[k]-u, rate=gamma) )
+  if(funs == 'exp'){
+    return(dexp(u, rate=lambda)*( pexp(screen.times_k_1-u, rate=st_params) - pexp(screen.times[k]-u, rate=st_params) ))
+  }
+  if(funs == 'weibull'){
+    return(dexp(u, rate=lambda)*( 
+      pweibull(screen.times_k_1-u, shape=st_params[1], scale=st_params[2]) - 
+        pweibull(screen.times[k]-u, shape=st_params[1], scale=st_params[2]) 
+      ))
+  }
   
 }
 
-integrand.interval.cancer.true<-function(u, screen.times, k, post.screen.lookout, lambda, gamma){
+integrand.interval.cancer.true<-function(u, screen.times, k, post.screen.lookout, lambda, st_params, funs){
   ########################################################################################
   #Author: Yibai Zhao
   #This function calculate the probability of interval cancer when onset at time u and k^{th} screen test is true negative
@@ -46,17 +61,23 @@ integrand.interval.cancer.true<-function(u, screen.times, k, post.screen.lookout
   #        k: k^{th} screen time, t_k
   #        post.screen.lookout: post screen lookout time
   #        lambda: mean pre-clinical onset time from exp(lambda)
-  #        gamma: mean sojourn time fromo exp(gamma)
+  #        st_params: parameters for sojourn time function
+  #        funs: function of sojourn time
   #OUTPUTS: numeric value between 0 and 1
   ##########################################################################################
   
   screen.times_k_1 <- screen.times[k] + post.screen.lookout
-  dexp(u, rate=lambda)*pexp(screen.times_k_1-u, rate=gamma, lower.tail=T)
+  if(funs == 'exp'){
+    return(dexp(u, rate=lambda)*pexp(screen.times_k_1-u, rate=st_params, lower.tail=T))
+  }
+  if(funs == 'weibull'){
+    return(dexp(u, rate=lambda)*pweibull(screen.times_k_1-u, shape=st_params[1], scale=st_params[2], lower.tail=T))
+  }
+  
 }
 
-screen.detect.time.k <- function(screen.times, k, lambda, gamma,
-                                 sensitivity,
-                                 clinical.cancer.state, pre.clinical.cancer.state){
+screen.detect.time.k <- function(screen.times, k, lambda, st_params, funs, 
+                                 sensitivity){
   ########################################################################################
   #Author: Yibai Zhao
   #This function calculate the probability of screen detected at k^{th} screen time
@@ -64,7 +85,8 @@ screen.detect.time.k <- function(screen.times, k, lambda, gamma,
   #INPUTS: screen.times: screen times
   #        k: k^{th} screen time, t_k
   #        lambda: mean pre-clinical onset time from exp(lambda)
-  #        gamma: mean sojourn time fromo exp(gamma)
+  #        st_params: parameters for sojourn time function
+  #        funs: function of sojourn time
   #        sensitivity: true sensitivity
   #OUTPUTS: numeric value between 0 and 1
   ##########################################################################################
@@ -73,7 +95,8 @@ screen.detect.time.k <- function(screen.times, k, lambda, gamma,
   # k=0 #####
   if(k == 1){
     screen.detect <- screen.detect + integrate(integrand.screen.detect,
-                                               lower=0, upper=screen.times[k], screen.times, k, lambda, gamma)$value*sensitivity
+                                               lower=0, upper=screen.times[k], 
+                                               screen.times, k, lambda, st_params, funs)$value*sensitivity
     return(screen.detect)
   }
   # k>0 ####
@@ -81,19 +104,20 @@ screen.detect.time.k <- function(screen.times, k, lambda, gamma,
   for (i in c(1:(k-1))) {
     screen.times_i_1 <- ifelse(i == 1, 0, screen.times[i-1])
     screen.detect <- screen.detect + integrate(integrand.screen.detect,
-                                               lower=screen.times_i_1, upper=screen.times[i], screen.times, k, lambda, gamma)$value*(1-sensitivity)^(k-i)*sensitivity
+                                               lower=screen.times_i_1, upper=screen.times[i], 
+                                               screen.times, k, lambda, st_params, funs)$value*(1-sensitivity)^(k-i)*sensitivity
   }
   # case 2: true negative before k
   screen.detect <- screen.detect + integrate(integrand.screen.detect,
-                                             lower=screen.times[k-1], upper=screen.times[k], screen.times, k, lambda, gamma)$value*sensitivity
+                                             lower=screen.times[k-1], upper=screen.times[k], 
+                                             screen.times, k, lambda, st_params, funs)$value*sensitivity
   return(screen.detect)
 }
 
 interval.cancer.time.k <- function(screen.times, k, 
-                                   lambda, gamma,
+                                   lambda, st_params, funs,
                                    sensitivity,
-                                   post.screen.lookout,
-                                   clinical.cancer.state, pre.clinical.cancer.state){
+                                   post.screen.lookout){
   ########################################################################################
   #Author: Yibai Zhao
   #This function calculate the probability of interval cancer at k^{th} screen time
@@ -101,7 +125,8 @@ interval.cancer.time.k <- function(screen.times, k,
   #INPUTS: screen.times: screen times
   #        k: k^{th} screen time, t_k
   #        lambda: mean pre-clinical onset time from exp(lambda)
-  #        gamma: mean sojourn time fromo exp(gamma)
+  #        st_params: parameters for sojourn time function
+  #        funs: function of sojourn time
   #        sensitivity: true sensitivity
   #        post.screen.lookout: post screen lookout time
   #OUTPUTS: numeric value between 0 and 1
@@ -113,7 +138,8 @@ interval.cancer.time.k <- function(screen.times, k,
   for (i in c(1:k)) {
     screen.times_i_1 <- ifelse(i == 1, 0, screen.times[i-1])
     interval.cancer <- interval.cancer + integrate(integrand.interval.cancer.false.negative,
-                                                   lower=screen.times_i_1, upper=screen.times[i], screen.times, k, post.screen.lookout, lambda, gamma)$value * (1-sensitivity)^{(k-i+1)}
+                                                   lower=screen.times_i_1, upper=screen.times[i], 
+                                                   screen.times, k, post.screen.lookout, lambda, st_params, funs)$value * (1-sensitivity)^{(k-i+1)}
   }
   # case 2: interval detected in (t_k, t_{k+1})
   screen.times_k_1 <- screen.times[k] + post.screen.lookout
@@ -121,16 +147,17 @@ interval.cancer.time.k <- function(screen.times, k,
   #   screen.times_k_1 <- screen.times[k+1]
   # }
   interval.cancer <- interval.cancer + integrate(integrand.interval.cancer.true,
-                                                 lower=screen.times[k], upper=screen.times_k_1, screen.times, k, post.screen.lookout, lambda, gamma)$value
+                                                 lower=screen.times[k], upper=screen.times_k_1, 
+                                                 screen.times, k, post.screen.lookout, lambda, st_params, funs)$value
   
   return(interval.cancer)
 }
 
 empirical.sensitivity.general <- function(screen.start.time, k, #start.time=NULL, end.time=NULL,
                                           sensitivity,
-                                          rate.matrix,
+                                          pre_onset_params, st_params, funs,
                                           post.screen.lookout,
-                                          clinical.cancer.state, pre.clinical.cancer.state,
+                                          # clinical.cancer.state, pre.clinical.cancer.state,
                                           method='Single'){
   ########################################################################################
   #Author: Yibai Zhao
@@ -140,6 +167,7 @@ empirical.sensitivity.general <- function(screen.start.time, k, #start.time=NULL
   #        k: k^{th} screen time, t_k
   #        sensitivity: true sensitivity
   #        rate.matrix=transition matrix of cancer model
+  #        funs: function of sojourn time
   #        post.screen.lookout: post screen lookout time
   #        method: (1) 'Single': screen by screen at k^{th} screen time;
   #                (2) 'All': across k serious of screen times
@@ -150,28 +178,23 @@ empirical.sensitivity.general <- function(screen.start.time, k, #start.time=NULL
 
   screen.times <- screen.start.time + cumsum(rep(post.screen.lookout, k)) - post.screen.lookout
   
-  lambda = rate.matrix[[1, pre.clinical.cancer.state]]
-  gamma = rate.matrix[[pre.clinical.cancer.state, clinical.cancer.state]]
-  
-  screen.detect = screen.detect.time.k(screen.times, k, lambda, gamma,
-                                       sensitivity,
-                                       clinical.cancer.state, pre.clinical.cancer.state)
-  interval.cancer = interval.cancer.time.k(screen.times, k, lambda, gamma,
+  lambda = pre_onset_params
+
+  screen.detect = screen.detect.time.k(screen.times, k, lambda, st_params, funs,
+                                       sensitivity)
+  interval.cancer = interval.cancer.time.k(screen.times, k, lambda, st_params, funs,
                                            sensitivity,
-                                           post.screen.lookout,
-                                           clinical.cancer.state, pre.clinical.cancer.state)
+                                           post.screen.lookout)
   
   if((method=='All') & (k>1)){ #& (1<start.time)){
     # screen.detect <- interval.cancer <- 0
     for (tk in c(2:k)) {
     # for (tk in c(start.time:end.time)) {
-      screen.detect <- screen.detect + screen.detect.time.k(screen.times, k=tk, lambda, gamma,
-                                           sensitivity,
-                                           clinical.cancer.state, pre.clinical.cancer.state)
-      interval.cancer <- interval.cancer + interval.cancer.time.k(screen.times, k=tk, lambda, gamma,
+      screen.detect <- screen.detect + screen.detect.time.k(screen.times, k=tk, lambda, st_params, funs,
+                                           sensitivity)
+      interval.cancer <- interval.cancer + interval.cancer.time.k(screen.times, k=tk, lambda, st_params, funs,
                                                sensitivity,
-                                               post.screen.lookout,
-                                               clinical.cancer.state, pre.clinical.cancer.state)
+                                               post.screen.lookout)
       
     }
   }
